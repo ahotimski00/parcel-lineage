@@ -1,0 +1,39 @@
+"""Hermetic tests: no network, no downloads, run in well under a second."""
+
+from __future__ import annotations
+
+from parcel_lineage import ChangeType, classify_changes, resolve_owners
+from parcel_lineage.sample_data import corporate_family, snapshot
+
+
+def _resolved(year: int):
+    parcels = snapshot(year)
+    resolved = resolve_owners(parcels["raw_owner"], corporate_family())
+    return parcels.join(resolved[["parent", "score", "needs_review"]])
+
+
+def test_typo_resolves_to_correct_parent() -> None:
+    # "ACME TIMBERR LLC" (typo) should still roll up to ACME HOLDINGS INC.
+    resolved = _resolved(2024)
+    row = resolved.loc[resolved["parcel_id"] == 1].iloc[0]
+    assert row["parent"] == "ACME HOLDINGS INC"
+
+
+def test_reordered_and_punctuated_names_match() -> None:
+    # "Acme Pine, L.L.C." must match "ACME PINE LLC".
+    resolved = _resolved(2020)
+    row = resolved.loc[resolved["parcel_id"] == 2].iloc[0]
+    assert row["parent"] == "ACME HOLDINGS INC"
+    assert not row["needs_review"]
+
+
+def test_change_types_are_detected() -> None:
+    changes = classify_changes(_resolved(2020), _resolved(2024))
+    by_parcel = dict(zip(changes["parcel_id"], changes["change_type"]))
+
+    assert by_parcel[3] == ChangeType.OWNER_ONLY
+    assert by_parcel[4] == ChangeType.BOUNDARY_ONLY
+    assert by_parcel[5] == ChangeType.OWNER_AND_BOUNDARY
+    # Parcels 1 and 2 are unchanged and must be filtered out.
+    assert 1 not in by_parcel
+    assert 2 not in by_parcel

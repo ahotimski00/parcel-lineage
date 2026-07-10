@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "parcel-lineage"
+version = "0.1.0"
+description = "Resolve messy county parcel owners to their parent entity and track ownership change over time."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Al Hotimski" }]
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.0",
+    "rapidfuzz>=3.0",
+    "shapely>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.5", "mypy>=1.10"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/parcel_lineage"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+src = ["src", "tests", "examples"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+ignore_missing_imports = true

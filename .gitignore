@@ -9,3 +9,6 @@ dist/
 .venv/
 venv/
 .DS_Store
+
+# Local-only Streamlit layout tool (not published)
+/app.py

@@ -70,12 +70,12 @@ def plot_top_owners(
     return fig
 
 
-def _north_arrow(ax) -> None:
+def _north_arrow(ax, x: float, y: float) -> None:
     ax.annotate(
-        "", xy=(0.055, 0.94), xytext=(0.055, 0.83), xycoords="axes fraction",
+        "", xy=(x, y + 0.11), xytext=(x, y), xycoords="axes fraction",
         arrowprops=dict(arrowstyle="-|>", color="black", lw=1.8),
     )
-    ax.text(0.055, 0.955, "N", transform=ax.transAxes, ha="center", va="bottom",
+    ax.text(x, y + 0.13, "N", transform=ax.transAxes, ha="center", va="bottom",
             fontsize=11, fontweight="bold")
 
 
@@ -90,15 +90,23 @@ def plot_owner_map(
     author: str | None = None,
     sources: str | None = None,
     created: str | None = None,
+    north_arrow: tuple[float, float] = (0.055, 0.83),
+    locator_box: tuple[float, float, float, float] = (0.68, 0.66, 0.28, 0.28),
+    legend_loc: str = "lower left",
+    footer_y: float = 0.015,
 ):
     """Map the parcels, coloring the largest owners and greying out the rest.
 
     ``gdf`` is a GeoDataFrame from :func:`parcel_lineage.loaders.fetch_parcels_gdf`
     with a reconciled ``canonical`` column; ``highlight`` is the ordered list of
-    owners to color. Optional cartographic furniture: a north arrow (always), a
-    locator inset (``locator`` = context polygons, ``locator_focus`` = the area to
+    owners to color. Optional cartographic furniture: a north arrow, a locator
+    inset (``locator`` = context polygons, ``locator_focus`` = the area to
     highlight), and an attribution line (``author``, ``sources``, ``created``;
     ``created`` defaults to today).
+
+    The element positions are parameters (``north_arrow`` in axes fraction,
+    ``locator_box`` as a figure-fraction ``(left, bottom, w, h)`` rect,
+    ``legend_loc``, ``footer_y``) so they can be tuned per map.
     """
     from datetime import date
 
@@ -113,11 +121,13 @@ def plot_owner_map(
             subset.plot(ax=ax, color=cmap(i % 10), edgecolor="none", label=owner)
     ax.set_title(title)
     ax.set_axis_off()
-    ax.legend(loc="lower left", fontsize=8, title="Largest owners", frameon=True)
-    _north_arrow(ax)
+    ax.legend(  # type: ignore[call-overload]
+        loc=legend_loc, fontsize=8, title="Largest owners", frameon=True
+    )
+    _north_arrow(ax, *north_arrow)
 
     if locator is not None:
-        inset = fig.add_axes((0.68, 0.66, 0.28, 0.28))
+        inset = fig.add_axes(locator_box)
         locator.plot(ax=inset, color="#f2f2f2", edgecolor="#b8b8b8", linewidth=0.3)
         if locator_focus is not None:
             locator_focus.plot(ax=inset, color="#c0392b", edgecolor="black", linewidth=0.4)
@@ -128,6 +138,6 @@ def plot_owner_map(
     footer = f"Author: {author}   |   Created: {created}"
     if sources:
         footer += f"   |   {sources}"
-    fig.text(0.5, 0.015, footer, ha="center", va="bottom", fontsize=7, color="#444444")
+    fig.text(0.5, footer_y, footer, ha="center", va="bottom", fontsize=7, color="#444444")
     fig.subplots_adjust(bottom=0.06)
     return fig

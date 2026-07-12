@@ -160,8 +160,8 @@ def plot_owner_map(
         box_h = (wrapped.count("\n") + 1) * 0.019 + 0.014
         box_y = lb.y0 - 0.012 - box_h
         fig.add_artist(Rectangle(
-            (lb.x0, box_y), lb.width, box_h, facecolor="white", edgecolor="#bfbfbf",
-            linewidth=0.8, transform=fig.transFigure, figure=fig,
+            (lb.x0, box_y), lb.width, box_h, facecolor="white", edgecolor="none",
+            transform=fig.transFigure, figure=fig,
         ))
         fig.text(lb.x0 + lb.width / 2, box_y + box_h / 2, wrapped,
                  ha="center", va="center", fontsize=8, color="#333333")

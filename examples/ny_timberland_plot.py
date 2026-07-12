@@ -44,12 +44,12 @@ def main() -> None:
     owner_map = plot_owner_map(
         gdf,
         top[::-1],
-        title="Where the largest private landowners hold, Hamilton County, NY",
+        title="Largest private landowners, Hamilton County, NY",
         locator=counties,
         locator_focus=counties[counties["NAME"] == "Hamilton"],
         author="Al Hotimski",
         sources=(
-            "Data: NYS Statewide Parcels and Civil Boundaries (NYS ITS GIS Program); "
+            "\nData: NYS Statewide Parcels and Civil Boundaries (NYS ITS GIS Program); "
             "owners reconciled with parcel-lineage"
         ),
     )

@@ -90,9 +90,9 @@ def plot_owner_map(
     author: str | None = None,
     sources: str | None = None,
     created: str | None = None,
-    north_arrow: tuple[float, float] = (0.055, 0.83),
-    locator_box: tuple[float, float, float, float] = (0.68, 0.66, 0.28, 0.28),
-    legend_loc: str = "lower left",
+    north_arrow: tuple[float, float] = (0.025, 0.83),
+    locator_box: tuple[float, float, float, float] = (0.68, 0.56, 0.28, 0.28),
+    legend_loc: str = "lower left", 
     footer_y: float = 0.015,
 ):
     """Map the parcels, coloring the largest owners and greying out the rest.
@@ -121,9 +121,6 @@ def plot_owner_map(
             subset.plot(ax=ax, color=cmap(i % 10), edgecolor="none", label=owner)
     ax.set_title(title)
     ax.set_axis_off()
-    ax.legend(  # type: ignore[call-overload]
-        loc=legend_loc, fontsize=8, title="Largest owners", frameon=True
-    )
     _north_arrow(ax, *north_arrow)
 
     if locator is not None:
@@ -133,11 +130,43 @@ def plot_owner_map(
             locator_focus.plot(ax=inset, color="#c0392b", edgecolor="black", linewidth=0.4)
         inset.set_axis_off()
         inset.set_title("Location in New York", fontsize=8)
+        # Legend centered under the locator box.
+        left, bottom, w, _ = locator_box
+        leg = ax.legend(
+            loc="upper center", bbox_to_anchor=(left + w / 2, bottom - 0.05),
+            bbox_transform=fig.transFigure, fontsize=8, title="Largest owners",
+            frameon=True,
+        )
+    else:
+        leg = ax.legend(  # type: ignore[call-overload]
+            loc=legend_loc, fontsize=8, title="Largest owners", frameon=True
+        )
 
     created = created or date.today().isoformat()
-    footer = f"Author: {author}   |   Created: {created}"
+    footer = f"Author: {author}    Created: {created}"
     if sources:
-        footer += f"   |   {sources}"
-    fig.text(0.5, footer_y, footer, ha="center", va="bottom", fontsize=7, color="#444444")
-    fig.subplots_adjust(bottom=0.06)
+        footer += f"    {sources.strip()}"
+
+    if locator is not None:
+        # Footnote in a box the same width as the legend, centered under it.
+        import textwrap
+
+        from matplotlib.patches import Rectangle
+
+        fig.canvas.draw()
+        lb = leg.get_window_extent().transformed(fig.transFigure.inverted())
+        n_chars = max(16, int(lb.width / 0.011))
+        wrapped = textwrap.fill(" ".join(footer.split()), width=n_chars)
+        box_h = (wrapped.count("\n") + 1) * 0.019 + 0.014
+        box_y = lb.y0 - 0.012 - box_h
+        fig.add_artist(Rectangle(
+            (lb.x0, box_y), lb.width, box_h, facecolor="white", edgecolor="#bfbfbf",
+            linewidth=0.8, transform=fig.transFigure, figure=fig,
+        ))
+        fig.text(lb.x0 + lb.width / 2, box_y + box_h / 2, wrapped,
+                 ha="center", va="center", fontsize=8, color="#333333")
+    else:
+        fig.text(0.5, footer_y, footer, ha="center", va="bottom", fontsize=9,
+                 color="#333333")
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.95, bottom=0.02)
     return fig

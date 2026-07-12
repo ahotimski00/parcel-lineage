@@ -96,24 +96,30 @@ def fetch_parcels(
     )
 
 
-def fetch_parcels_gdf(
-    source: ParcelSource,
+# NY statewide county boundaries, handy for a locator inset on the demo map.
+NY_COUNTIES_QUERY = (
+    "https://gisservices.its.ny.gov/arcgis/rest/services/"
+    "NYS_Civil_Boundaries/MapServer/2/query"
+)
+
+
+def fetch_geojson(
+    query_url: str,
     where: str = "1=1",
     *,
+    out_fields: str = "*",
+    out_sr: int = 4326,
     page_size: int = 2000,
     max_records: int | None = None,
     timeout: int = 120,
 ) -> gpd.GeoDataFrame:
-    """Like :func:`fetch_parcels` but returns a GeoDataFrame with parcel polygons.
+    """Page any ArcGIS REST layer's ``/query`` endpoint into a GeoDataFrame.
 
     Requires the ``[viz]`` extra (geopandas). Geometry adds weight, so keep the
-    ``where`` clause tight (a county, a minimum acreage).
+    ``where`` clause tight.
     """
     import geopandas as gpd
 
-    out_fields = ",".join(
-        [source.id_field, source.owner_field, source.acres_field, *source.extra_fields]
-    )
     features: list[dict] = []
     offset = 0
     while True:
@@ -121,12 +127,12 @@ def fetch_parcels_gdf(
             "where": where,
             "outFields": out_fields,
             "returnGeometry": "true",
-            "outSR": "4326",
+            "outSR": str(out_sr),
             "resultOffset": str(offset),
             "resultRecordCount": str(page_size),
             "f": "geojson",
         }
-        resp = requests.get(source.query_url, params=params, timeout=timeout)
+        resp = requests.get(query_url, params=params, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
         if "error" in data:
@@ -138,9 +144,33 @@ def fetch_parcels_gdf(
             break
         offset += page_size
 
-    gdf = gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")
-    if max_records is not None:
-        gdf = gdf.head(max_records)
+    gdf = gpd.GeoDataFrame.from_features(features, crs=f"EPSG:{out_sr}")
+    return gdf.head(max_records) if max_records is not None else gdf
+
+
+def fetch_parcels_gdf(
+    source: ParcelSource,
+    where: str = "1=1",
+    *,
+    page_size: int = 2000,
+    max_records: int | None = None,
+    timeout: int = 120,
+) -> gpd.GeoDataFrame:
+    """Like :func:`fetch_parcels` but returns a GeoDataFrame with parcel polygons.
+
+    Requires the ``[viz]`` extra (geopandas). Keep the ``where`` clause tight.
+    """
+    out_fields = ",".join(
+        [source.id_field, source.owner_field, source.acres_field, *source.extra_fields]
+    )
+    gdf = fetch_geojson(
+        source.query_url,
+        where,
+        out_fields=out_fields,
+        page_size=page_size,
+        max_records=max_records,
+        timeout=timeout,
+    )
     return gdf.rename(
         columns={
             source.id_field: "parcel_id",

@@ -70,22 +70,41 @@ def plot_top_owners(
     return fig
 
 
+def _north_arrow(ax) -> None:
+    ax.annotate(
+        "", xy=(0.055, 0.94), xytext=(0.055, 0.83), xycoords="axes fraction",
+        arrowprops=dict(arrowstyle="-|>", color="black", lw=1.8),
+    )
+    ax.text(0.055, 0.955, "N", transform=ax.transAxes, ha="center", va="bottom",
+            fontsize=11, fontweight="bold")
+
+
 def plot_owner_map(
     gdf,
     highlight: list[str],
     *,
     canonical: str = "canonical",
     title: str = "Parcel ownership",
+    locator=None,
+    locator_focus=None,
+    author: str | None = None,
+    sources: str | None = None,
+    created: str | None = None,
 ):
     """Map the parcels, coloring the largest owners and greying out the rest.
 
     ``gdf`` is a GeoDataFrame from :func:`parcel_lineage.loaders.fetch_parcels_gdf`
     with a reconciled ``canonical`` column; ``highlight`` is the ordered list of
-    owners to color (typically the top few from :func:`plot_top_owners`).
+    owners to color. Optional cartographic furniture: a north arrow (always), a
+    locator inset (``locator`` = context polygons, ``locator_focus`` = the area to
+    highlight), and an attribution line (``author``, ``sources``, ``created``;
+    ``created`` defaults to today).
     """
+    from datetime import date
+
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(9, 9))
+    fig, ax = plt.subplots(figsize=(9, 9.6))
     gdf.plot(ax=ax, color="#ededed", edgecolor="white", linewidth=0.15)
     cmap = plt.get_cmap("tab10")
     for i, owner in enumerate(highlight):
@@ -95,5 +114,20 @@ def plot_owner_map(
     ax.set_title(title)
     ax.set_axis_off()
     ax.legend(loc="lower left", fontsize=8, title="Largest owners", frameon=True)
-    fig.tight_layout()
+    _north_arrow(ax)
+
+    if locator is not None:
+        inset = fig.add_axes((0.68, 0.66, 0.28, 0.28))
+        locator.plot(ax=inset, color="#f2f2f2", edgecolor="#b8b8b8", linewidth=0.3)
+        if locator_focus is not None:
+            locator_focus.plot(ax=inset, color="#c0392b", edgecolor="black", linewidth=0.4)
+        inset.set_axis_off()
+        inset.set_title("Location in New York", fontsize=8)
+
+    created = created or date.today().isoformat()
+    footer = f"Author: {author}   |   Created: {created}"
+    if sources:
+        footer += f"   |   {sources}"
+    fig.text(0.5, 0.015, footer, ha="center", va="bottom", fontsize=7, color="#444444")
+    fig.subplots_adjust(bottom=0.06)
     return fig

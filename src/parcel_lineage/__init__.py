@@ -8,20 +8,24 @@ from parcel_lineage.entity_resolution import (
     resolve_owners,
 )
 from parcel_lineage.loaders import (
+    NY_COUNTIES_QUERY,
     NY_TAX_PARCELS,
     ParcelSource,
+    fetch_geojson,
     fetch_parcels,
     fetch_parcels_gdf,
 )
 
 __all__ = [
     "LEGAL_TOKENS",
+    "NY_COUNTIES_QUERY",
     "NY_TAX_PARCELS",
     "ChangeType",
     "ParcelSource",
     "ResolverConfig",
     "classify_changes",
     "cluster_owners",
+    "fetch_geojson",
     "fetch_parcels",
     "fetch_parcels_gdf",
     "resolve_owners",

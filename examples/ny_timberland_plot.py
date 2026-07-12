@@ -9,7 +9,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from parcel_lineage.entity_resolution import cluster_owners
-from parcel_lineage.loaders import NY_TAX_PARCELS, fetch_parcels_gdf
+from parcel_lineage.loaders import (
+    NY_COUNTIES_QUERY,
+    NY_TAX_PARCELS,
+    fetch_geojson,
+    fetch_parcels_gdf,
+)
 from parcel_lineage.viz import plot_owner_map, plot_top_owners
 
 # Curated corporate-family aliases for known Adirondack timberland owners.
@@ -34,10 +39,19 @@ def main() -> None:
 
     private = gdf[gdf["canonical"] != "State Of New York"]
     top = list(private.groupby("canonical")["acres"].sum().sort_values().tail(6).index)
+
+    counties = fetch_geojson(NY_COUNTIES_QUERY, out_fields="NAME")
     owner_map = plot_owner_map(
         gdf,
         top[::-1],
         title="Where the largest private landowners hold, Hamilton County, NY",
+        locator=counties,
+        locator_focus=counties[counties["NAME"] == "Hamilton"],
+        author="Al Hotimski",
+        sources=(
+            "Data: NYS Statewide Parcels and Civil Boundaries (NYS ITS GIS Program); "
+            "owners reconciled with parcel-lineage"
+        ),
     )
     owner_map.savefig(out / "hamilton_owner_map.png", dpi=140)
     print(f"Wrote {out}/hamilton_landowners.png and {out}/hamilton_owner_map.png")

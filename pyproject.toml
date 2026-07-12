@@ -19,6 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.5", "mypy>=1.10"]
+viz = ["matplotlib>=3.7"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/parcel_lineage"]

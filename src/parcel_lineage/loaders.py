@@ -12,9 +12,13 @@ tax-parcel layer, which carries owner names and acreage and needs no account.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import requests
+
+if TYPE_CHECKING:
+    import geopandas as gpd
 
 
 @dataclass(frozen=True)
@@ -84,6 +88,60 @@ def fetch_parcels(
     if max_records is not None:
         df = df.head(max_records)
     return df.rename(
+        columns={
+            source.id_field: "parcel_id",
+            source.owner_field: "owner",
+            source.acres_field: "acres",
+        }
+    )
+
+
+def fetch_parcels_gdf(
+    source: ParcelSource,
+    where: str = "1=1",
+    *,
+    page_size: int = 2000,
+    max_records: int | None = None,
+    timeout: int = 120,
+) -> gpd.GeoDataFrame:
+    """Like :func:`fetch_parcels` but returns a GeoDataFrame with parcel polygons.
+
+    Requires the ``[viz]`` extra (geopandas). Geometry adds weight, so keep the
+    ``where`` clause tight (a county, a minimum acreage).
+    """
+    import geopandas as gpd
+
+    out_fields = ",".join(
+        [source.id_field, source.owner_field, source.acres_field, *source.extra_fields]
+    )
+    features: list[dict] = []
+    offset = 0
+    while True:
+        params = {
+            "where": where,
+            "outFields": out_fields,
+            "returnGeometry": "true",
+            "outSR": "4326",
+            "resultOffset": str(offset),
+            "resultRecordCount": str(page_size),
+            "f": "geojson",
+        }
+        resp = requests.get(source.query_url, params=params, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        if "error" in data:
+            raise RuntimeError(f"ArcGIS query failed: {data['error']}")
+        page = data.get("features", [])
+        features.extend(page)
+        more = data.get("exceededTransferLimit") or len(page) == page_size
+        if not more or (max_records is not None and len(features) >= max_records):
+            break
+        offset += page_size
+
+    gdf = gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")
+    if max_records is not None:
+        gdf = gdf.head(max_records)
+    return gdf.rename(
         columns={
             source.id_field: "parcel_id",
             source.owner_field: "owner",

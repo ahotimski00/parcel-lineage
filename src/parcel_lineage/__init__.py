@@ -7,7 +7,12 @@ from parcel_lineage.entity_resolution import (
     cluster_owners,
     resolve_owners,
 )
-from parcel_lineage.loaders import NY_TAX_PARCELS, ParcelSource, fetch_parcels
+from parcel_lineage.loaders import (
+    NY_TAX_PARCELS,
+    ParcelSource,
+    fetch_parcels,
+    fetch_parcels_gdf,
+)
 
 __all__ = [
     "LEGAL_TOKENS",
@@ -18,6 +23,7 @@ __all__ = [
     "classify_changes",
     "cluster_owners",
     "fetch_parcels",
+    "fetch_parcels_gdf",
     "resolve_owners",
 ]
 

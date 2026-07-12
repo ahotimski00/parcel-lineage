@@ -45,8 +45,8 @@ def main() -> None:
         ax.text(cx, cy + 0.15, "\n".join(textwrap.wrap(title, 16)),
                 ha="center", va="center", fontsize=11, fontweight="bold",
                 color="#1f3d29")
-        ax.text(cx, cy - 0.13, textwrap.fill(sub, 22),
-                ha="center", va="center", fontsize=8, color="#496b57")
+        ax.text(cx, cy - 0.14, textwrap.fill(sub, 20),
+                ha="center", va="center", fontsize=10, color="#496b57")
         if i < n - 1:
             ax.annotate(
                 "", xy=(centers[i + 1] - box_w / 2, cy), xytext=(cx + box_w / 2, cy),

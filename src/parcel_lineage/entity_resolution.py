@@ -32,15 +32,26 @@ class ResolverConfig:
     scorer: Callable[[str, str], float] = fuzz.token_sort_ratio
 
 
-def _normalize(name: str) -> str:
-    """Cheap, deterministic cleanup applied before fuzzy scoring."""
+# Unambiguous legal-entity suffixes, dropped before matching so that
+# "Northway Forests" and "Northway Forests LLC" compare as the same core name.
+# Deliberately excludes meaningful words like TRUST, CLUB, or ASSOCIATION.
+LEGAL_TOKENS = frozenset(
+    {"LLC", "INC", "CO", "CORP", "CORPORATION", "LP", "LLP", "LTD", "COMPANY", "INCORPORATED"}
+)
+
+
+def _normalize(name: str, drop_tokens: frozenset[str] = frozenset()) -> str:
+    """Cheap, deterministic cleanup applied before fuzzy scoring.
+
+    ``drop_tokens`` removes whole tokens (typically legal suffixes like LLC or
+    INC) so the distinctive part of the name drives the match.
+    """
     text = name.upper().strip().replace(",", " ").replace(".", "")
-    # Collapse common legal-suffix spellings to one token. Dots are already
-    # stripped above, so "L.L.C." arrives here as "LLC".
+    # Collapse common legal-suffix spellings to one token before splitting.
     for variant in ("L L C", "LIMITED LIABILITY COMPANY"):
         text = text.replace(variant, "LLC")
-    # Final split/join collapses any repeated whitespace to single spaces.
-    return " ".join(text.split())
+    tokens = [t for t in text.split() if t not in drop_tokens]
+    return " ".join(tokens)
 
 
 def resolve_owners(
@@ -107,25 +118,45 @@ def cluster_owners(
     *,
     threshold: float = 92.0,
     scorer: object = fuzz.token_sort_ratio,
+    drop_tokens: frozenset[str] = LEGAL_TOKENS,
+    aliases: dict[str, str] | None = None,
 ) -> pd.Series:
     """Collapse messy owner strings into canonical groups without a lookup table.
 
-    Use this when there is no corporate-family table to match against (the common
-    case with a raw county roll): normalize each name, then greedily merge
-    near-duplicate normalized names (typos, punctuation, spacing) above
-    ``threshold`` into one cluster. Each cluster is labeled with its most common
-    original spelling.
+    Runs two passes and returns a Series aligned to ``owners`` giving the
+    canonical owner per row, so ``df.groupby(cluster_owners(df["owner"])).sum()``
+    reveals the true largest holders.
 
-    Returns a Series aligned to ``owners`` giving the canonical owner for each row,
-    so ``df.groupby(cluster_owners(df["owner"])).sum()`` reveals the true largest
-    holders once name variants are reconciled.
+    1. **Curated aliases** (optional): ``aliases`` maps a keyword to a parent
+       label, rolling up distinct names that share a corporate brand. For example
+       ``{"LYME": "Lyme Timber", "LAT": "Lyme Timber"}`` groups "Lyme Adirondack
+       Timberlands II" and "Lyme / LAT I, LLC" under one owner. Keywords are
+       matched as whole tokens. This is a human-curated input, not inferred, so it
+       does not fabricate corporate relationships.
+    2. **Fuzzy variant merging**: everything an alias did not claim is normalized
+       (dropping legal tokens like LLC via ``drop_tokens``), then near-duplicate
+       spellings are greedily merged above ``threshold`` and labeled with the most
+       common original spelling.
     """
     raw = owners.astype(str)
-    norm = raw.map(_normalize)
+    norm = raw.map(lambda s: _normalize(s, drop_tokens))
+    result: pd.Series = pd.Series(index=raw.index, dtype=object)
+
+    if aliases:
+        alias_map = {kw.upper(): parent for kw, parent in aliases.items()}
+        for idx, name in norm.items():
+            tokens = set(name.split())
+            for keyword, parent in alias_map.items():
+                if keyword in tokens:
+                    result.loc[idx] = parent
+                    break
+
+    remaining = result.isna()
+    rem_norm = norm[remaining]
 
     reps: list[str] = []  # one normalized representative per cluster
     rep_of: dict[str, int] = {}  # normalized string -> cluster index
-    for value in dict.fromkeys(norm):  # unique normalized names, first-seen order
+    for value in dict.fromkeys(rem_norm):  # unique normalized names, first-seen
         match = (
             process.extractOne(value, reps, scorer=scorer)  # type: ignore[arg-type]
             if reps
@@ -137,9 +168,11 @@ def cluster_owners(
             rep_of[value] = len(reps)
             reps.append(value)
 
-    cluster = norm.map(rep_of)
+    cluster = rem_norm.map(rep_of)
     # Canonical label per cluster: the most frequent raw spelling in it.
     canonical = {
-        idx: group.value_counts().index[0] for idx, group in raw.groupby(cluster)
+        idx: group.value_counts().index[0]
+        for idx, group in raw[remaining].groupby(cluster)
     }
-    return cluster.map(canonical)
+    result.loc[remaining] = cluster.map(canonical)
+    return result

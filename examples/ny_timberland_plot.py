@@ -12,12 +12,15 @@ from parcel_lineage.entity_resolution import cluster_owners
 from parcel_lineage.loaders import NY_TAX_PARCELS, fetch_parcels
 from parcel_lineage.viz import plot_top_owners
 
+# Curated corporate-family aliases for known Adirondack timberland owners.
+ADIRONDACK_ALIASES = {"LYME": "Lyme Timber", "LAT": "Lyme Timber"}
+
 
 def main() -> None:
     df = fetch_parcels(NY_TAX_PARCELS, where="COUNTY_NAME='Hamilton' AND ACRES>25")
     df = df.dropna(subset=["owner", "acres"])
     df = df[df["owner"].str.strip() != ""]
-    df["canonical"] = cluster_owners(df["owner"]).to_numpy()
+    df["canonical"] = cluster_owners(df["owner"], aliases=ADIRONDACK_ALIASES).to_numpy()
 
     fig = plot_top_owners(
         df,

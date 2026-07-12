@@ -44,16 +44,16 @@ def plot_top_owners(
     ax.set_yticks(range(len(names)), names)
     for i, name in enumerate(names):
         value = totals.iloc[i]
-        note = f"   [{variants[name]} spellings merged]" if variants[name] > 1 else ""
+        note = f"   [{variants[name]} names merged]" if variants[name] > 1 else ""
         ax.text(value, i, f"  {value:,.0f} ac{note}", va="center", fontsize=9)
 
-    ax.set_xlabel("Acres owned (variants reconciled)")
+    ax.set_xlabel("Acres owned (names reconciled)")
     ax.set_title(title)
     ax.margins(x=0.22)
     handles = [
         plt.Rectangle((0, 0), 1, 1, color=merged),
         plt.Rectangle((0, 0), 1, 1, color=single),
     ]
-    ax.legend(handles, ["name variants merged", "single spelling"], loc="lower right")
+    ax.legend(handles, ["names merged", "single name"], loc="lower right")
     fig.tight_layout()
     return fig

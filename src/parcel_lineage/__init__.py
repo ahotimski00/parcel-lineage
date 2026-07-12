@@ -2,6 +2,7 @@
 
 from parcel_lineage.change_detection import ChangeType, classify_changes
 from parcel_lineage.entity_resolution import (
+    LEGAL_TOKENS,
     ResolverConfig,
     cluster_owners,
     resolve_owners,
@@ -9,6 +10,7 @@ from parcel_lineage.entity_resolution import (
 from parcel_lineage.loaders import NY_TAX_PARCELS, ParcelSource, fetch_parcels
 
 __all__ = [
+    "LEGAL_TOKENS",
     "NY_TAX_PARCELS",
     "ChangeType",
     "ParcelSource",

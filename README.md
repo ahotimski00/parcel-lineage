@@ -17,8 +17,9 @@ downloads and no accounts.
 ## What it does
 
 1. **Owner-name reconciliation** (`cluster_owners`): with no lookup table, collapse
-   the spelling variants of a raw county roll ("Northway Forests, LLC" vs "NORTHWAY
-   FORESTS LLC") into one canonical owner, so the true largest holders surface.
+   spelling variants of a raw county roll into one canonical owner, ignoring legal
+   suffixes (LLC, CO, INC), and optionally roll the distinct names of a known
+   corporate family up under one parent via a curated keyword alias.
 2. **Entity resolution** (`resolve_owners`): when a corporate-family table is
    available, fuzzy-match raw owner strings to canonical child LLCs and roll up to
    the ultimate parent, flagging low-confidence matches for human review.
@@ -46,10 +47,11 @@ pytest
 
 `examples/ny_timberland.py` pulls the live New York statewide tax-parcel service
 (`parcel_lineage.loaders.NY_TAX_PARCELS`, no account needed) for Hamilton County,
-reconciles the owner-name variants, and re-ranks the largest landowners. Recent
-run: 3,512 parcels over 25 acres, 711 raw owner strings reconciled to 690, with
-the reconciliation merging spelling variants of the big timberland LLCs, for
-example Lyme Adirondack Timberlands II (3 spellings) and Whitney Industries LLC.
+reconciles the owner names, and re-ranks the largest landowners. Recent run: 3,512
+parcels over 25 acres, 711 raw owner strings reconciled to 684. A curated alias
+(`{"LYME": "Lyme Timber", "LAT": "Lyme Timber"}`) then rolls that timberland
+family up from 7 distinct LLC names into one owner, which turns out to be the
+largest private holder in the county at 50,970 acres.
 
 ![Largest private landowners in Hamilton County, NY, after owner-name reconciliation; bars whose owner had multiple spellings merged are highlighted](docs/hamilton_landowners.png)
 

@@ -44,6 +44,24 @@ def test_cluster_owners_merges_spelling_variants() -> None:
     assert canon.nunique() == 3
 
 
+def test_cluster_owners_ignores_legal_suffix() -> None:
+    # A missing legal suffix should not split an owner.
+    canon = cluster_owners(pd.Series(["Northway Forests LLC", "Northway Forests"]))
+    assert canon.nunique() == 1
+
+
+def test_cluster_owners_aliases_group_a_family() -> None:
+    owners = pd.Series([
+        "Lyme Adirondack Timberlands II",
+        "Lyme / LAT I, LLC",
+        "Whitney Industries LLC",
+    ])
+    canon = cluster_owners(owners, aliases={"LYME": "Lyme Timber", "LAT": "Lyme Timber"})
+    # The two distinct Lyme names roll up to one parent; Whitney stays separate.
+    assert canon.iloc[0] == canon.iloc[1] == "Lyme Timber"
+    assert canon.iloc[2] != "Lyme Timber"
+
+
 def test_change_types_are_detected() -> None:
     changes = classify_changes(_resolved(2020), _resolved(2024))
     by_parcel = dict(zip(changes["parcel_id"], changes["change_type"]))

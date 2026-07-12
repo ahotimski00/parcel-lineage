@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from parcel_lineage import ChangeType, classify_changes, resolve_owners
+import pandas as pd
+
+from parcel_lineage import ChangeType, classify_changes, cluster_owners, resolve_owners
 from parcel_lineage.sample_data import corporate_family, snapshot
 
 
@@ -25,6 +27,21 @@ def test_reordered_and_punctuated_names_match() -> None:
     row = resolved.loc[resolved["parcel_id"] == 2].iloc[0]
     assert row["parent"] == "ACME HOLDINGS INC"
     assert not row["needs_review"]
+
+
+def test_cluster_owners_merges_spelling_variants() -> None:
+    owners = pd.Series([
+        "Northway Forests, LLC",
+        "NORTHWAY FORESTS LLC",
+        "Northway Forests L.L.C.",
+        "Whitney Industries LLC",
+        "State of New York",
+    ])
+    canon = cluster_owners(owners)
+    # The three Northway spellings collapse to one canonical label.
+    assert canon.iloc[:3].nunique() == 1
+    # Distinct entities stay distinct.
+    assert canon.nunique() == 3
 
 
 def test_change_types_are_detected() -> None:

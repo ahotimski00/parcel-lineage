@@ -100,3 +100,46 @@ def resolve_owners(
         index=raw_owners.index,
         columns=["raw_owner", "matched_child", "parent", "score", "needs_review"],
     )
+
+
+def cluster_owners(
+    owners: pd.Series,
+    *,
+    threshold: float = 92.0,
+    scorer: object = fuzz.token_sort_ratio,
+) -> pd.Series:
+    """Collapse messy owner strings into canonical groups without a lookup table.
+
+    Use this when there is no corporate-family table to match against (the common
+    case with a raw county roll): normalize each name, then greedily merge
+    near-duplicate normalized names (typos, punctuation, spacing) above
+    ``threshold`` into one cluster. Each cluster is labeled with its most common
+    original spelling.
+
+    Returns a Series aligned to ``owners`` giving the canonical owner for each row,
+    so ``df.groupby(cluster_owners(df["owner"])).sum()`` reveals the true largest
+    holders once name variants are reconciled.
+    """
+    raw = owners.astype(str)
+    norm = raw.map(_normalize)
+
+    reps: list[str] = []  # one normalized representative per cluster
+    rep_of: dict[str, int] = {}  # normalized string -> cluster index
+    for value in dict.fromkeys(norm):  # unique normalized names, first-seen order
+        match = (
+            process.extractOne(value, reps, scorer=scorer)  # type: ignore[arg-type]
+            if reps
+            else None
+        )
+        if match is not None and match[1] >= threshold:
+            rep_of[value] = match[2]
+        else:
+            rep_of[value] = len(reps)
+            reps.append(value)
+
+    cluster = norm.map(rep_of)
+    # Canonical label per cluster: the most frequent raw spelling in it.
+    canonical = {
+        idx: group.value_counts().index[0] for idx, group in raw.groupby(cluster)
+    }
+    return cluster.map(canonical)
